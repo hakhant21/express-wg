@@ -1,0 +1,471 @@
+<div x-data="dashboard" x-init="init()">
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Servers -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">Total Servers</p>
+                    <h3 class="text-3xl font-bold text-gray-800 dark:text-white" x-text="stats.servers?.total || 0"></h3>
+                </div>
+                <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
+                    <i class="fas fa-server text-blue-600 dark:text-blue-300 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center text-sm">
+                    <span class="text-green-600 dark:text-green-400">
+                        <i class="fas fa-circle mr-1"></i>
+                        <span x-text="stats.servers?.active || 0"></span> Active
+                    </span>
+                    <span class="mx-2">•</span>
+                    <span class="text-gray-600 dark:text-gray-400">
+                        <span x-text="stats.servers?.inactive || 0"></span> Inactive
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total Peers -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">Total Peers</p>
+                    <h3 class="text-3xl font-bold text-gray-800 dark:text-white" x-text="stats.peers?.total || 0"></h3>
+                </div>
+                <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
+                    <i class="fas fa-users text-green-600 dark:text-green-300 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center text-sm">
+                    <span class="text-green-600 dark:text-green-400">
+                        <i class="fas fa-circle mr-1"></i>
+                        <span x-text="stats.peers?.connected || 0"></span> Connected
+                    </span>
+                    <span class="mx-2">•</span>
+                    <span class="text-gray-600 dark:text-gray-400">
+                        <span x-text="(stats.peers?.total || 0) - (stats.peers?.connected || 0)"></span> Disconnected
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Transferred -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">Data Transferred</p>
+                    <h3 class="text-3xl font-bold text-gray-800 dark:text-white" 
+                        x-text="Utils.formatBytes(stats.data?.total || 0)"></h3>
+                </div>
+                <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
+                    <i class="fas fa-exchange-alt text-purple-600 dark:text-purple-300 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center text-sm">
+                    <span class="text-blue-600 dark:text-blue-400">
+                        <i class="fas fa-download mr-1"></i>
+                        <span x-text="Utils.formatBytes(stats.data?.received || 0)"></span>
+                    </span>
+                    <span class="mx-2">•</span>
+                    <span class="text-green-600 dark:text-green-400">
+                        <i class="fas fa-upload mr-1"></i>
+                        <span x-text="Utils.formatBytes(stats.data?.sent || 0)"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Health -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">System Health</p>
+                    <h3 class="text-3xl font-bold" 
+                        :class="healthScore >= 80 ? 'text-green-600' : healthScore >= 60 ? 'text-yellow-600' : 'text-red-600'"
+                        x-text="healthScore + '%'"></h3>
+                </div>
+                <div class="p-3 rounded-full" 
+                     :class="healthScore >= 80 ? 'bg-green-100 dark:bg-green-900' : 
+                             healthScore >= 60 ? 'bg-yellow-100 dark:bg-yellow-900' : 
+                             'bg-red-100 dark:bg-red-900'">
+                    <i class="fas fa-heartbeat text-2xl"
+                       :class="healthScore >= 80 ? 'text-green-600 dark:text-green-300' : 
+                               healthScore >= 60 ? 'text-yellow-600 dark:text-yellow-300' : 
+                               'text-red-600 dark:text-red-300'"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="text-sm">
+                    <span x-text="healthStatus"></span>
+                    <button @click="checkHealth()" class="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Active Servers -->
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Active Servers</h3>
+                    <button @click="refreshData()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Server</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Interface</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Peers</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ISP</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <template x-for="server in servers" :key="server._id">
+                                <tr>
+                                    <td class="px-6 py-4">
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white" x-text="server.name"></div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400" x-text="server.address"></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <code class="text-sm bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded" 
+                                              x-text="server.interfaceName"></code>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-1 text-xs rounded-full" 
+                                              :class="Utils.getStatusColor(server.status)"
+                                              x-text="server.status"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center">
+                                            <span class="text-gray-900 dark:text-white" 
+                                                  x-text="server.peerCount"></span>
+                                            <span class="text-green-600 dark:text-green-400 ml-2" 
+                                                  x-text="'(' + server.activePeers + ')'"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-1 text-xs rounded-full" 
+                                              :class="Utils.getISPColor(server.ispProfile)"
+                                              x-text="server.ispProfile"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex space-x-2">
+                                            <button @click="toggleServer(server)" 
+                                                    :class="server.status === 'active' ? 
+                                                           'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-300' : 
+                                                           'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300'"
+                                                    class="px-3 py-1 text-sm rounded-lg">
+                                                <i :class="server.status === 'active' ? 'fas fa-stop' : 'fas fa-play'" 
+                                                   class="mr-1"></i>
+                                                <span x-text="server.status === 'active' ? 'Stop' : 'Start'"></span>
+                                            </button>
+                                            <a :href="'/servers/' + server._id" 
+                                               class="px-3 py-1 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 rounded-lg">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="!servers || servers.length === 0">
+                                <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-server text-4xl mb-4"></i>
+                                    <p>No servers configured yet</p>
+                                    <a href="/servers" class="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                        <i class="fas fa-plus mr-2"></i>Add Server
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="px-6 py-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Recent Activity</h3>
+                </div>
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center" x-show="loading">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                            <span class="text-gray-600 dark:text-gray-400">Loading activity...</span>
+                        </div>
+                        <template x-for="activity in recentActivity" :key="activity.id">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center" 
+                                         :class="activity.type === 'server' ? 'bg-blue-100 dark:bg-blue-900' : 
+                                                 activity.type === 'peer' ? 'bg-green-100 dark:bg-green-900' : 
+                                                 'bg-purple-100 dark:bg-purple-900'">
+                                        <i :class="activity.icon" 
+                                           :class="activity.type === 'server' ? 'text-blue-600 dark:text-blue-300' : 
+                                                   activity.type === 'peer' ? 'text-green-600 dark:text-green-300' : 
+                                                   'text-purple-600 dark:text-purple-300'"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-gray-800 dark:text-white" x-text="activity.message"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="Utils.formatDate(activity.timestamp)"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions & ISP Distribution -->
+        <div class="space-y-6">
+            <!-- Quick Actions -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <a href="/servers" 
+                       class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/30 dark:hover:to-blue-700/30 transition-all">
+                        <i class="fas fa-plus-circle text-blue-600 dark:text-blue-300 text-xl mb-2"></i>
+                        <span class="text-sm font-medium text-blue-700 dark:text-blue-300">Add Server</span>
+                    </a>
+                    <a href="/peers" 
+                       class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg hover:from-green-100 hover:to-green-200 dark:hover:from-green-800/30 dark:hover:to-green-700/30 transition-all">
+                        <i class="fas fa-user-plus text-green-600 dark:text-green-300 text-xl mb-2"></i>
+                        <span class="text-sm font-medium text-green-700 dark:text-green-300">Add Peer</span>
+                    </a>
+                    <a href="/mtu-test" 
+                       class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-800/30 dark:hover:to-purple-700/30 transition-all">
+                        <i class="fas fa-tachometer-alt text-purple-600 dark:text-purple-300 text-xl mb-2"></i>
+                        <span class="text-sm font-medium text-purple-700 dark:text-purple-300">Test MTU</span>
+                    </a>
+                    <button @click="syncAll()" 
+                            class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-lg hover:from-yellow-100 hover:to-yellow-200 dark:hover:from-yellow-800/30 dark:hover:to-yellow-700/30 transition-all">
+                        <i class="fas fa-sync-alt text-yellow-600 dark:text-yellow-300 text-xl mb-2"></i>
+                        <span class="text-sm font-medium text-yellow-700 dark:text-yellow-300">Sync All</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ISP Distribution -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">ISP Distribution</h3>
+                <div class="space-y-3">
+                    <template x-for="isp in ispDistribution" :key="isp.name">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-medium" x-text="isp.name"></span>
+                                <span class="text-gray-600 dark:text-gray-400" x-text="isp.count"></span>
+                            </div>
+                            <div class="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div :style="'width: ' + isp.percentage + '%'" 
+                                     :class="isp.color" 
+                                     class="h-full"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            
+            <!-- System Status -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">System Status</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Database</span>
+                        <span class="flex items-center">
+                            <span class="w-2 h-2 rounded-full mr-2" 
+                                  :class="health.database ? 'bg-green-500' : 'bg-red-500'"></span>
+                            <span class="text-sm" x-text="health.database ? 'Connected' : 'Disconnected'"></span>
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">WireGuard</span>
+                        <span class="flex items-center">
+                            <span class="w-2 h-2 rounded-full mr-2" 
+                                  :class="health.wireguard ? 'bg-green-500' : 'bg-red-500'"></span>
+                            <span class="text-sm" x-text="health.wireguard ? 'Installed' : 'Not Installed'"></span>
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Interfaces</span>
+                        <span class="text-sm">
+                            <span x-text="health.interfaces?.filter(i => i.running).length || 0"></span>/
+                            <span x-text="health.interfaces?.length || 0"></span> Running
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('dashboard', () => ({
+        servers: [],
+        stats: {},
+        health: {},
+        healthScore: 0,
+        healthStatus: 'Checking...',
+        ispDistribution: [],
+        recentActivity: [],
+        loading: false,
+        
+        async init() {
+            await this.loadData();
+            await this.loadHealth();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                this.loadData();
+                this.loadHealth();
+            }, 30000);
+        },
+        
+        async loadData() {
+            try {
+                this.loading = true;
+                const [servers, stats] = await Promise.all([
+                    API.getServers(),
+                    API.getStats()
+                ]);
+                
+                this.servers = servers.filter(s => s.status === 'active');
+                this.stats = stats;
+                
+                // Calculate ISP distribution
+                this.calculateISPDistribution();
+                
+                // Generate recent activity
+                this.generateRecentActivity();
+                
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+                Utils.showNotification('Failed to load dashboard data', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadHealth() {
+            try {
+                const health = await API.getHealth();
+                this.health = health;
+                this.healthScore = health.score || 0;
+                this.healthStatus = health.status === 'healthy' ? 'All systems operational' : 
+                                  health.status === 'unhealthy' ? 'System issues detected' : 
+                                  'Checking...';
+            } catch (error) {
+                console.error('Failed to load health data:', error);
+                this.healthStatus = 'Failed to check health';
+            }
+        },
+        
+        calculateISPDistribution() {
+            const ispCounts = {};
+            let total = 0;
+            
+            // Count servers by ISP
+            this.servers.forEach(server => {
+                const isp = server.ispProfile || 'UNKNOWN';
+                ispCounts[isp] = (ispCounts[isp] || 0) + 1;
+                total++;
+            });
+            
+            // Convert to array with percentages
+            this.ispDistribution = Object.entries(ispCounts).map(([name, count]) => {
+                const percentage = total > 0 ? (count / total) * 100 : 0;
+                const colors = {
+                    'MPT': 'bg-blue-500',
+                    'OOREDOO': 'bg-red-500',
+                    'MYTEL': 'bg-purple-500',
+                    'ATOM': 'bg-green-500',
+                    'TELENOR': 'bg-teal-500',
+                    'UNKNOWN': 'bg-gray-500'
+                };
+                
+                return {
+                    name,
+                    count,
+                    percentage,
+                    color: colors[name] || colors.UNKNOWN
+                };
+            }).sort((a, b) => b.count - a.count);
+        },
+        
+        generateRecentActivity() {
+            const activities = [];
+            
+            // Add server activities
+            this.servers.forEach(server => {
+                if (server.updatedAt) {
+                    activities.push({
+                        id: Utils.generateId(),
+                        type: 'server',
+                        icon: 'fas fa-server',
+                        message: `${server.name} is ${server.status}`,
+                        timestamp: server.updatedAt
+                    });
+                }
+            });
+            
+            // Sort by timestamp
+            activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Take only recent 5
+            this.recentActivity = activities.slice(0, 5);
+        },
+        
+        async toggleServer(server) {
+            try {
+                if (server.status === 'active') {
+                    await API.stopServer(server.interfaceName);
+                    Utils.showNotification(`Stopped ${server.name}`, 'success');
+                } else {
+                    await API.startServer(server.interfaceName);
+                    Utils.showNotification(`Started ${server.name}`, 'success');
+                }
+                
+                // Refresh data
+                await this.loadData();
+                
+            } catch (error) {
+                Utils.showNotification(`Failed to toggle server: ${error.message}`, 'error');
+            }
+        },
+        
+        async refreshData() {
+            await this.loadData();
+            Utils.showNotification('Dashboard refreshed', 'info');
+        },
+        
+        async checkHealth() {
+            await this.loadHealth();
+            Utils.showNotification('Health check completed', 'info');
+        },
+        
+        async syncAll() {
+            try {
+                await API.request('/sync-all', { method: 'POST' });
+                await this.loadData();
+                Utils.showNotification('All interfaces synced successfully', 'success');
+            } catch (error) {
+                Utils.showNotification('Failed to sync interfaces', 'error');
+            }
+        }
+    }));
+});
+</script>
